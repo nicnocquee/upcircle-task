@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  name        String
+  email       String?       @unique
+  password    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  humanLabels HumanLabels[]
+
+  @@map("users")
+}
+
+model Bale {
+  id          Int               @id @default(autoincrement())
+  url         String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  humanLabels HumanLabels[]
+  predictions ModelPrediction[]
+
+  @@map("bales")
+}
+
+model ModelPrediction {
+  id         Int      @id @default(autoincrement())
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId Int
+  confidence Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  bale       Bale?    @relation(fields: [baleId], references: [id])
+  baleId     Int?
+
+  @@map("model_predictions")
+}
+
+// material_group, lieferung_qualitat, rezept_material
+model LabelSet {
+  id         Int        @id @default(autoincrement())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories Category[]
+
+  @@map("label_sets")
+}
+
+// classes for each label_set, material_group: HDPE, LDPE. lieferung_qualitat: A, B
+model LabelSetClass {
+  id         Int        @id @default(autoincrement())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories Category[]
+
+  @@map("label_set_classes")
+}
+
+// for each combination of label_set and label_set_class, there is a category. e.g., material_group-HDPE, lieferung_qualitat-A.
+// then for each category we can get the list of human_labels and model_predictions.
+model Category {
+  id               Int               @id @default(autoincrement())
+  labelSet         LabelSet          @relation(fields: [labelSetId], references: [id], onDelete: Cascade)
+  labelSetId       Int
+  labelSetClass    LabelSetClass     @relation(fields: [labelSetClassId], references: [id], onDelete: Cascade)
+  labelSetClassId  Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  humanLabels      HumanLabels[]
+  modelPredictions ModelPrediction[]
+
+  @@unique([labelSetId, labelSetClassId])
+  @@map("categories")
+}
+
+model HumanLabels {
+  id         Int      @id @default(autoincrement())
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId Int
+  bale       Bale?    @relation(fields: [baleId], references: [id])
+  baleId     Int?
+
+  @@index([categoryId])
+  @@map("human_labels")
+}
